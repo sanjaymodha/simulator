@@ -45,14 +45,14 @@ public class SimulatorCalculator {
     public void calculateSimulationsAndPayoffs(BonusCapCertificate bonusCapCertificate,
                                                List<HistoricalPrices> historicalPricesList,
                                                long recommendedHoldingPeriod) {
-        BigDecimal[] simulations = createSimulations(bonusCapCertificate, historicalPricesList, recommendedHoldingPeriod);
+        BigDecimal[][] simulations = createSimulations(bonusCapCertificate, historicalPricesList, recommendedHoldingPeriod);
         BigDecimal[][] nonDiscountedPayoffs = payoffCalculator.calculateNonDiscountedPayoffs(simulations, bonusCapCertificate);
         BigDecimal[][] discountedPayoffs = payoffCalculator.calculatedDiscountedPayoffs(recommendedHoldingPeriod,bonusCapCertificate,nonDiscountedPayoffs);
         marketRiskMeasuresCalculator.calculateMarketRiskMeasures(discountedPayoffs,bonusCapCertificate,recommendedHoldingPeriod);
 
     }
 
-    public BigDecimal[] createSimulations(BonusCapCertificate bonusCapCertificate,
+    public BigDecimal[][] createSimulations(BonusCapCertificate bonusCapCertificate,
                                                   List<HistoricalPrices> historicalPricesList,
                                                   long recommendedHoldingPeriod) {
         BigDecimal riskFreeRate = (bonusCapCertificate.getRiskFreeRate()!=null)? bonusCapCertificate.getRiskFreeRate() : new BigDecimal(0);
@@ -60,12 +60,11 @@ public class SimulatorCalculator {
         BigDecimal[][] samples = getSamples(adjustedReturns, recommendedHoldingPeriod, bonusCapCertificate.getNumberOfSimulations());
         BigDecimal simulationStartLevel = getSimulationStartLevel(bonusCapCertificate.getSimulationStartDate(), historicalPricesList);
         BigDecimal[][] simulatedValues = performSimulations(samples,simulationStartLevel,recommendedHoldingPeriod, bonusCapCertificate.getNumberOfSimulations());
-        return null;
+        return simulatedValues;
     }
 
     public BigDecimal[][] performSimulations(BigDecimal[][] samples, BigDecimal initialReferenceLevel,long recommendedHoldingPeriod, int numberOfSimulations) {
         int rhp = (int) recommendedHoldingPeriod;
-        BigDecimal[][] simulatedValues = new BigDecimal[rhp][numberOfSimulations];
         BigDecimal[][] referenceLevels = new BigDecimal[rhp][numberOfSimulations];
         double ones = 1.0;
 
@@ -81,18 +80,29 @@ public class SimulatorCalculator {
 
         for(int i =0; i< rhp ; i++){
             for(int j =0; j< numberOfSimulations; j++){
-                samples[i][j] = BigDecimal.valueOf(Math.exp(samples[i][j].doubleValue()));
+                double exponent = Math.exp(samples[i][j].doubleValue());
+                double refLevels = referenceLevels[i][j].doubleValue();
+                samples[i][j] = BigDecimal.valueOf(exponent * refLevels);
             }
         }
-        System.out.println();
-        /*for(int i =0; i< rhp ; i++){
-            for(int j =0; j< numberOfSimulations; j++){
-                samples[i][j] = BigDecimal.valueOf(Math.exp(samples[i][j].doubleValue() * referenceLevels[i][j].doubleValue()));
-            }
-        }*/
 
-        return simulatedValues;
+        return cumulativeProduct(samples, rhp, numberOfSimulations);
     }
+
+    public BigDecimal[][] cumulativeProduct(BigDecimal[][] samples, int rhp, int numberOfSimulations){
+        BigDecimal[][] cumProd = new BigDecimal[rhp][numberOfSimulations];
+        for(int i =0; i< rhp ; i++){
+            for(int j =0; j< numberOfSimulations; j++){
+                if(i==0) {
+                    cumProd[i][j] = samples[i][j];
+                }else{
+                    cumProd[i][j] = BigDecimal.valueOf(samples[i][j].doubleValue() * samples[0][j].doubleValue());
+                }
+            }
+        }
+        return cumProd;
+    }
+
 
     public BigDecimal getSimulationStartLevel(LocalDate simulationStartDate, List<HistoricalPrices> historicalPricesList) {
         BigDecimal result = null;
@@ -110,7 +120,9 @@ public class SimulatorCalculator {
         BigDecimal[][] samples = new BigDecimal[rhp][numberOfSimulations];
         for(int i =0; i< rhp ; i++){
             for(int j =0; j< numberOfSimulations; j++){
-                samples[i][j] = getRandom(adjustedReturns);
+                if(adjustedReturns!= null) {
+                    samples[i][j] = getRandom(adjustedReturns);
+                }
             }
         }
         return samples;
@@ -123,30 +135,25 @@ public class SimulatorCalculator {
     }
 
     public BigDecimal[][] createAdjustedReturns(List<HistoricalPrices> historicalPricesList, BigDecimal riskFreeRate) {
-        //List<BigDecimal> actualLogs = new ArrayList<>();
 
         BigDecimal[] actualLogs = new BigDecimal[historicalPricesList.size()];
         BigDecimal[] logReturns = new BigDecimal[historicalPricesList.size()];
         BigDecimal[][] adjustedReturns = new BigDecimal[1][historicalPricesList.size()];
-
-        //double[] adjustedReturns = new double[1827];
-
-        //List<BigDecimal> logReturns = new ArrayList<>();
         for(int i=0; i< historicalPricesList.size(); i++){
             actualLogs[i] = BigDecimal.valueOf(Math.log(historicalPricesList.get(i).getClosingPrice().doubleValue()));
+            //System.out.println(" actualLogs["+i+"] " + actualLogs[i]);
         }
 
-        /*for(HistoricalPrices price: historicalPricesList){
-            actualLogs.add(BigDecimal.valueOf(Math.log(price.getClosingPrice().doubleValue())));
-        }*/
         for(int i=0; i< actualLogs.length-1; i++){
-            logReturns[i+1] = BigDecimal.valueOf(actualLogs[i+1].doubleValue() - actualLogs[i].doubleValue());
+            logReturns[i] = BigDecimal.valueOf(actualLogs[i+1].doubleValue() - actualLogs[i].doubleValue());
+            //System.out.println(" logReturns["+i+"] " + logReturns[i]);
         }
 
         double[] logReturnsInput = new double[historicalPricesList.size()];
 
         for(int i=0; i< logReturns.length-1; i++){
-            logReturnsInput[i+1] = logReturns[i+1].doubleValue();
+            logReturnsInput[i] = logReturns[i].doubleValue();
+            //System.out.println(" logReturnsInput["+i+"] " + logReturnsInput[i]);
         }
 
         StandardDeviation sd = new StandardDeviation(false);
@@ -158,8 +165,9 @@ public class SimulatorCalculator {
 
         for (int c = 0; c < columns; c++) {
             for (int r = 0; r < rows; r++) {
-                adjustedReturns[r][c+1] = BigDecimal.valueOf(logReturns[c+1].doubleValue()
+                adjustedReturns[r][c] = BigDecimal.valueOf(logReturns[c].doubleValue()
                         + (riskFreeRate.doubleValue() - meanResult - 0.5 * standardDeviation * standardDeviation));
+                //System.out.println(" adjustedReturns["+r+"]["+c+"]"  + adjustedReturns[r][c]);
             }
         }
 

@@ -6,7 +6,7 @@ import java.math.BigDecimal;
  * Created by smodha on 14/03/2018.
  */
 public class PayoffCalculator {
-    public BigDecimal[][] calculateNonDiscountedPayoffs(BigDecimal[] simulations, BonusCapCertificate bonusCapCertificate) {
+    public BigDecimal[][] calculateNonDiscountedPayoffs(BigDecimal[][] simulations, BonusCapCertificate bonusCapCertificate) {
         return new BigDecimal[0][];
     }
 
