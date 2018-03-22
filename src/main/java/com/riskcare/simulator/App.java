@@ -101,14 +101,14 @@ public class App
     }
 
     private static Collection<IgniteCallable<List<Double>>> jobs(int clusterSize, final BonusCapCertificate bonusCapCertificate,
-                                                                 final List<HistoricalPrices> historicalPrices, final long recommendedHoldingPeriod ) {
+                                                                 final List<HistoricalPrices> historicalPrices, final long recommendedHoldingPeriod) {
         int nodes = clusterSize;
         int simulationChunks = bonusCapCertificate.getNumberOfSimulations() / nodes;
         bonusCapCertificate.setNumberOfSimulations(simulationChunks);
 
         Collection<IgniteCallable<List<Double>>> clos = new ArrayList<>(clusterSize);
 
-        for ( int i = 0; i < clusterSize; i++ ) {
+        for (int i = 0; i < clusterSize; i++) {
             clos.add(new IgniteCallable<List<Double>>() {
                 /** {@inheritDoc} */
                 @Override
@@ -116,7 +116,7 @@ public class App
                     return simulatorCalculator.calculateSimulationsAndPayoffs(bonusCapCertificate, historicalPrices,
                             recommendedHoldingPeriod);
                 }
-            } );
+            });
         }
 
         return clos;
