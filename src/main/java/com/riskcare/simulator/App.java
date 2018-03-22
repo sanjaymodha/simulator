@@ -76,7 +76,7 @@ public class App
         historicalPricesList = getHistoricalPrices(historicalPricesSheet,dataFormatter);
         System.out.println(historicalPricesList.toString());
 
-        try (Ignite ignite = Ignition.start("examples/config/example-ignite.xml")) {
+        try (Ignite ignite = Ignition.start("src//main//resources//example-ignite.xml")) {
             List<List<Double>> computedSimsPayoff = ignite.compute().call(jobs(ignite.cluster().nodes().size(), bonusCapCertificate,
                         historicalPricesList, recommendedHoldingPeriod),
                     new IgniteReducer<List<Double>,List<List<Double>>>() {
