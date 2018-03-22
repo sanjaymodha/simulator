@@ -77,16 +77,19 @@ public class App
         System.out.println(historicalPricesList.toString());
 
         try (Ignite ignite = Ignition.start("examples/config/example-ignite.xml")) {
-            List<Double> nonDiscountedPayoffs = ignite.compute().call(jobs(ignite.cluster().nodes().size(), bonusCapCertificate, historicalPricesList, recommendedHoldingPeriod),
-                    new IgniteReducer<List<Double>,List<Double>>() {
+            List<List<Double>> computedSimsPayoff = ignite.compute().call(jobs(ignite.cluster().nodes().size(), bonusCapCertificate,
+                        historicalPricesList, recommendedHoldingPeriod),
+                    new IgniteReducer<List<Double>,List<List<Double>>>() {
+                        private List<List<Double>> reduced = new ArrayList<>();
                         @Override
                         public boolean collect(@Nullable List<Double> objects) {
-                            return false;
+                            reduced.add(objects);
+                            return true;
                         }
 
                         @Override
-                        public List<Double> reduce() {
-                            return null;
+                        public List<List<Double>> reduce() {
+                            return reduced;
                         }
                     });
 
