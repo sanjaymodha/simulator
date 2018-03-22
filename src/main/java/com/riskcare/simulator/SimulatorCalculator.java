@@ -16,7 +16,6 @@ public class SimulatorCalculator {
     private List<HistoricalPrices> historicalPricesList;
     private long recommendedHoldingPeriod;
     private PayoffCalculator payoffCalculator = new PayoffCalculator();
-    private MarketRiskMeasuresCalculator marketRiskMeasuresCalculator = new MarketRiskMeasuresCalculator();
 
     public BonusCapCertificate getBonusCapCertificate() {
         return bonusCapCertificate;
@@ -42,14 +41,12 @@ public class SimulatorCalculator {
         this.recommendedHoldingPeriod = recommendedHoldingPeriod;
     }
 
-    public void calculateSimulationsAndPayoffs(BonusCapCertificate bonusCapCertificate,
+    public List<Double> calculateSimulationsAndPayoffs(BonusCapCertificate bonusCapCertificate,
                                                List<HistoricalPrices> historicalPricesList,
                                                long recommendedHoldingPeriod) {
         BigDecimal[][] simulations = createSimulations(bonusCapCertificate, historicalPricesList, recommendedHoldingPeriod);
-        BigDecimal[][] nonDiscountedPayoffs = payoffCalculator.calculateNonDiscountedPayoffs(simulations, bonusCapCertificate);
-        BigDecimal[][] discountedPayoffs = payoffCalculator.calculatedDiscountedPayoffs(recommendedHoldingPeriod,bonusCapCertificate,nonDiscountedPayoffs);
-        marketRiskMeasuresCalculator.calculateMarketRiskMeasures(discountedPayoffs,bonusCapCertificate,recommendedHoldingPeriod);
-
+        List nonDiscountedPayoffs = payoffCalculator.calculateNonDiscountedPayoffs(simulations, recommendedHoldingPeriod, bonusCapCertificate);
+        return nonDiscountedPayoffs;
     }
 
     public BigDecimal[][] createSimulations(BonusCapCertificate bonusCapCertificate,

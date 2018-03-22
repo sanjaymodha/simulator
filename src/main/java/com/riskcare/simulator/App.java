@@ -21,6 +21,10 @@ public class App
 
     public static SimulatorCalculator simulatorCalculator = new SimulatorCalculator();
 
+    public static  PayoffCalculator payoffCalculator = new PayoffCalculator();
+
+    public static MarketRiskMeasuresCalculator marketRiskMeasuresCalculator = new MarketRiskMeasuresCalculator();
+
     public static void main( String[] args )throws IOException, InvalidFormatException
     {
         HashMap<String, Object> instrumentDetails = new LinkedHashMap<>();
@@ -67,7 +71,9 @@ public class App
         historicalPricesList = getHistoricalPrices(historicalPricesSheet,dataFormatter);
         System.out.println(historicalPricesList.toString());
 
-        simulatorCalculator.calculateSimulationsAndPayoffs(bonusCapCertificate,historicalPricesList,recommendedHoldingPeriod);
+        List<Double> nonDiscountedPayoffs = simulatorCalculator.calculateSimulationsAndPayoffs(bonusCapCertificate,historicalPricesList,recommendedHoldingPeriod);
+        BigDecimal[][] discountedPayoffs = payoffCalculator.calculatedDiscountedPayoffs(recommendedHoldingPeriod,bonusCapCertificate,nonDiscountedPayoffs);
+        marketRiskMeasuresCalculator.calculateMarketRiskMeasures(discountedPayoffs,bonusCapCertificate,recommendedHoldingPeriod);
         // Closing the workbook
         workbook.close();
     }
