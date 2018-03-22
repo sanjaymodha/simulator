@@ -45,7 +45,7 @@ public class SimulatorCalculator {
                                                List<HistoricalPrices> historicalPricesList,
                                                long recommendedHoldingPeriod) {
         BigDecimal[][] simulations = createSimulations(bonusCapCertificate, historicalPricesList, recommendedHoldingPeriod);
-        List nonDiscountedPayoffs = payoffCalculator.calculateNonDiscountedPayoffs(simulations, recommendedHoldingPeriod, bonusCapCertificate);
+        List<Double> nonDiscountedPayoffs = payoffCalculator.calculateNonDiscountedPayoffs(simulations, recommendedHoldingPeriod, bonusCapCertificate);
         return nonDiscountedPayoffs;
     }
 

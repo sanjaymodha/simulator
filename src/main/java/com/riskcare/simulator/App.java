@@ -1,7 +1,12 @@
 package com.riskcare.simulator;
 
+import org.apache.ignite.Ignite;
+import org.apache.ignite.Ignition;
+import org.apache.ignite.lang.IgniteCallable;
+import org.apache.ignite.lang.IgniteReducer;
 import org.apache.poi.openxml4j.exceptions.InvalidFormatException;
 import org.apache.poi.ss.usermodel.*;
+import org.jetbrains.annotations.Nullable;
 
 import java.io.File;
 import java.io.IOException;
@@ -71,11 +76,47 @@ public class App
         historicalPricesList = getHistoricalPrices(historicalPricesSheet,dataFormatter);
         System.out.println(historicalPricesList.toString());
 
-        List<Double> nonDiscountedPayoffs = simulatorCalculator.calculateSimulationsAndPayoffs(bonusCapCertificate,historicalPricesList,recommendedHoldingPeriod);
-        BigDecimal[][] discountedPayoffs = payoffCalculator.calculatedDiscountedPayoffs(recommendedHoldingPeriod,bonusCapCertificate,nonDiscountedPayoffs);
-        marketRiskMeasuresCalculator.calculateMarketRiskMeasures(discountedPayoffs,bonusCapCertificate,recommendedHoldingPeriod);
-        // Closing the workbook
+        try (Ignite ignite = Ignition.start("examples/config/example-ignite.xml")) {
+            List<Double> nonDiscountedPayoffs = ignite.compute().call(jobs(ignite.cluster().nodes().size(), bonusCapCertificate, historicalPricesList, recommendedHoldingPeriod),
+                    new IgniteReducer<List<Double>,List<Double>>() {
+                        @Override
+                        public boolean collect(@Nullable List<Double> objects) {
+                            return false;
+                        }
+
+                        @Override
+                        public List<Double> reduce() {
+                            return null;
+                        }
+                    });
+
+            BigDecimal[][] discountedPayoffs = payoffCalculator.calculatedDiscountedPayoffs(recommendedHoldingPeriod,bonusCapCertificate,nonDiscountedPayoffs);
+            marketRiskMeasuresCalculator.calculateMarketRiskMeasures(discountedPayoffs,bonusCapCertificate,recommendedHoldingPeriod);
+            // Closing the workbook
+        }
         workbook.close();
+    }
+
+    private static Collection<IgniteCallable<List<Double>>> jobs(int clusterSize, final BonusCapCertificate bonusCapCertificate,
+                                                                 final List<HistoricalPrices> historicalPrices, final long recommendedHoldingPeriod ) {
+        int nodes = clusterSize;
+        int simulationChunks = bonusCapCertificate.getNumberOfSimulations() / nodes;
+        bonusCapCertificate.setNumberOfSimulations(simulationChunks);
+
+        Collection<IgniteCallable<List<Double>>> clos = new ArrayList<>(clusterSize);
+
+        for ( int i = 0; i < clusterSize; i++ ) {
+            clos.add(new IgniteCallable<List<Double>>() {
+                /** {@inheritDoc} */
+                @Override
+                public List<Double> call() throws Exception {
+                    return simulatorCalculator.calculateSimulationsAndPayoffs(bonusCapCertificate, historicalPrices,
+                            recommendedHoldingPeriod);
+                }
+            } );
+        }
+
+        return clos;
     }
 
     private static long calculateRecommendedHoldingPeriod(BonusCapCertificate bonusCapCertificate) {
