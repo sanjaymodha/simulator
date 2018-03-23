@@ -76,7 +76,7 @@ public class App
         historicalPricesList = getHistoricalPrices(historicalPricesSheet,dataFormatter);
         System.out.println(historicalPricesList.toString());
 
-        try (Ignite ignite = Ignition.start("src//main//resources//example-ignite.xml")) {
+        try (Ignite ignite = Ignition.start("example-ignite.xml")) {
             List<List<Double>> computedSimsPayoff = ignite.compute().call(jobs(ignite.cluster().nodes().size(), bonusCapCertificate,
                         historicalPricesList, recommendedHoldingPeriod),
                     new IgniteReducer<List<Double>,List<List<Double>>>() {
@@ -93,8 +93,8 @@ public class App
                         }
                     });
 
-            BigDecimal[][] discountedPayoffs = payoffCalculator.calculatedDiscountedPayoffs(recommendedHoldingPeriod,bonusCapCertificate,nonDiscountedPayoffs);
-            marketRiskMeasuresCalculator.calculateMarketRiskMeasures(discountedPayoffs,bonusCapCertificate,recommendedHoldingPeriod);
+           // BigDecimal[][] discountedPayoffs = payoffCalculator.calculatedDiscountedPayoffs(recommendedHoldingPeriod,bonusCapCertificate,nonDiscountedPayoffs);
+           // marketRiskMeasuresCalculator.calculateMarketRiskMeasures(discountedPayoffs,bonusCapCertificate,recommendedHoldingPeriod);
             // Closing the workbook
         }
         workbook.close();
