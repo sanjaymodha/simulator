@@ -6,6 +6,7 @@ import org.apache.ignite.lang.IgniteCallable;
 import org.apache.ignite.lang.IgniteReducer;
 import org.apache.poi.openxml4j.exceptions.InvalidFormatException;
 import org.apache.poi.ss.usermodel.*;
+import org.javatuples.Pair;
 import org.jetbrains.annotations.Nullable;
 
 import java.io.File;
@@ -92,12 +93,31 @@ public class App
                             return reduced;
                         }
                     });
-            List<Double> nonDiscountedPayoffs = simulatorCalculator.calculateSimulationsAndPayoffs(bonusCapCertificate,historicalPricesList,recommendedHoldingPeriod);
+
+            Pair<List<List<Double>>,List<List<Double>>> result = vsplit(computedSimsPayoff);
+            List<List<Double>> finalSimulatedPrices = result.getValue0();
+            List<Double> nonDiscountedPayoffs = result.getValue1().get(0);
+
             List<Double> discountedPayoffs = payoffCalculator.calculatedDiscountedPayoffs(recommendedHoldingPeriod,bonusCapCertificate,nonDiscountedPayoffs);
             marketRiskMeasuresCalculator.calculateMarketRiskMeasures(discountedPayoffs,bonusCapCertificate,recommendedHoldingPeriod);
             // Closing the workbook
         }
         workbook.close();
+    }
+
+    private static Pair<List<List<Double>>,List<List<Double>>> vsplit(List<List<Double>> lists) {
+        int portion = lists.size() / 2;
+        List<List<Double>> p1 = new ArrayList<>();
+        List<List<Double>> p2 = new ArrayList<>();
+        int p = 0;
+        for ( List<Double> l : lists ) {
+            if ( p++ < portion ) {
+                p1.add(l);
+            } else {
+                p2.add(l);
+            }
+        }
+        return Pair.with(p1,p2);
     }
 
     private static Collection<IgniteCallable<List<Double>>> jobs(int clusterSize, final BonusCapCertificate bonusCapCertificate,
