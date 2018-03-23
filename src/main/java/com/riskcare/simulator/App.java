@@ -92,9 +92,9 @@ public class App
                             return reduced;
                         }
                     });
-
-           // BigDecimal[][] discountedPayoffs = payoffCalculator.calculatedDiscountedPayoffs(recommendedHoldingPeriod,bonusCapCertificate,nonDiscountedPayoffs);
-           // marketRiskMeasuresCalculator.calculateMarketRiskMeasures(discountedPayoffs,bonusCapCertificate,recommendedHoldingPeriod);
+            List<Double> nonDiscountedPayoffs = simulatorCalculator.calculateSimulationsAndPayoffs(bonusCapCertificate,historicalPricesList,recommendedHoldingPeriod);
+            List<Double> discountedPayoffs = payoffCalculator.calculatedDiscountedPayoffs(recommendedHoldingPeriod,bonusCapCertificate,nonDiscountedPayoffs);
+            marketRiskMeasuresCalculator.calculateMarketRiskMeasures(discountedPayoffs,bonusCapCertificate,recommendedHoldingPeriod);
             // Closing the workbook
         }
         workbook.close();
@@ -152,7 +152,8 @@ public class App
         bonusCapCertificate.setSimulationStartDate(LocalDate.parse((String) map.get(Constants.SIMULATION_START_DATE), formatter));
         String rate = (String) map.get(Constants.RATE);
         String rateStr = rate.substring(0, rate.length() - 1);
-        bonusCapCertificate.setRate(new BigDecimal(rateStr));
+        Double rateInt = Double.parseDouble(rateStr);
+        bonusCapCertificate.setRate(new BigDecimal(rateInt/100));
         bonusCapCertificate.setNumberOfSimulations(Integer.parseInt((String) map.get(Constants.NUMBER_OF_SIMULATIONS)));
         bonusCapCertificate.setqLabDemo((String) map.get(Constants.Q_LAB_DEMO));
         bonusCapCertificate.setMrmResultsSheetName((String) map.get(Constants.MRM_RESULTS_SHEET_NAME));
