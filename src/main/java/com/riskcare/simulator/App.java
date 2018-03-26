@@ -14,7 +14,6 @@ import java.io.IOException;
 import java.math.BigDecimal;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
-import java.time.Duration;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
@@ -79,7 +78,7 @@ public class App
 
         try (Ignite ignite = Ignition.start("example-ignite.xml")) {
             List<List<Double>> computedSimsPayoff = ignite.compute().call(jobs(ignite.cluster().nodes().size(), bonusCapCertificate,
-                        historicalPricesList, recommendedHoldingPeriod),
+                        historicalPricesList, totalNumberOfSimulations, recommendedHoldingPeriod),
                     new IgniteReducer<List<Double>,List<List<Double>>>() {
                         private List<List<Double>> reduced = new ArrayList<>();
                         @Override
@@ -121,18 +120,23 @@ public class App
     }
 
     private static Collection<IgniteCallable<List<Double>>> jobs(int clusterSize, final BonusCapCertificate bonusCapCertificate,
-                                                                 final List<HistoricalPrices> historicalPrices, final long recommendedHoldingPeriod) {
+                                                                 final List<HistoricalPrices> historicalPrices, int totalSimulations,
+                                                                 final long recommendedHoldingPeriod) {
         int nodes = clusterSize;
-        int simulationChunks = bonusCapCertificate.getNumberOfSimulations() / nodes;
-        bonusCapCertificate.setNumberOfSimulations(simulationChunks);
+        int nodeChunk = Math.round(bonusCapCertificate.getNumberOfSimulations() / (float) clusterSize);
+
+        int lastNodeChunk = totalSimulations - (clusterSize -1) * nodeChunk;
 
         Collection<IgniteCallable<List<Double>>> clos = new ArrayList<>(clusterSize);
 
         for (int i = 0; i < clusterSize; i++) {
+            final int chunk = i == clusterSize -1 ? lastNodeChunk : nodeChunk;
             clos.add(new IgniteCallable<List<Double>>() {
                 /** {@inheritDoc} */
                 @Override
                 public List<Double> call() throws Exception {
+                    System.out.println(">>> Processing "+chunk+" simulations");
+                    bonusCapCertificate.setNumberOfSimulations(chunk);
                     return simulatorCalculator.calculateSimulationsAndPayoffs(bonusCapCertificate, historicalPrices,
                             recommendedHoldingPeriod);
                 }
