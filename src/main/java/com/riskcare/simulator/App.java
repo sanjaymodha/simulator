@@ -6,6 +6,7 @@ import org.apache.ignite.lang.IgniteCallable;
 import org.apache.ignite.lang.IgniteReducer;
 import org.apache.poi.openxml4j.exceptions.InvalidFormatException;
 import org.apache.poi.ss.usermodel.*;
+import org.javatuples.Pair;
 import org.jetbrains.annotations.Nullable;
 
 import java.io.File;
@@ -13,7 +14,6 @@ import java.io.IOException;
 import java.math.BigDecimal;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
-import java.time.Duration;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
@@ -78,7 +78,7 @@ public class App
 
         try (Ignite ignite = Ignition.start("example-ignite.xml")) {
             List<List<Double>> computedSimsPayoff = ignite.compute().call(jobs(ignite.cluster().nodes().size(), bonusCapCertificate,
-                        historicalPricesList, recommendedHoldingPeriod),
+                        historicalPricesList, totalNumberOfSimulations, recommendedHoldingPeriod),
                     new IgniteReducer<List<Double>,List<List<Double>>>() {
                         private List<List<Double>> reduced = new ArrayList<>();
                         @Override
@@ -92,7 +92,11 @@ public class App
                             return reduced;
                         }
                     });
-            List<Double> nonDiscountedPayoffs = simulatorCalculator.calculateSimulationsAndPayoffs(bonusCapCertificate,historicalPricesList,recommendedHoldingPeriod);
+
+            Pair<List<List<Double>>,List<List<Double>>> result = vsplit(computedSimsPayoff);
+            List<List<Double>> finalSimulatedPrices = result.getValue0();
+            List<Double> nonDiscountedPayoffs = result.getValue1().get(0);
+
             List<Double> discountedPayoffs = payoffCalculator.calculatedDiscountedPayoffs(recommendedHoldingPeriod,bonusCapCertificate,nonDiscountedPayoffs);
             Map measures = marketRiskMeasuresCalculator.calculateMarketRiskMeasures(discountedPayoffs,bonusCapCertificate,recommendedHoldingPeriod);
             // Closing the workbook
@@ -100,19 +104,39 @@ public class App
         workbook.close();
     }
 
+    private static Pair<List<List<Double>>,List<List<Double>>> vsplit(List<List<Double>> lists) {
+        int portion = lists.size() / 2;
+        List<List<Double>> p1 = new ArrayList<>();
+        List<List<Double>> p2 = new ArrayList<>();
+        int p = 0;
+        for ( List<Double> l : lists ) {
+            if ( p++ < portion ) {
+                p1.add(l);
+            } else {
+                p2.add(l);
+            }
+        }
+        return Pair.with(p1,p2);
+    }
+
     private static Collection<IgniteCallable<List<Double>>> jobs(int clusterSize, final BonusCapCertificate bonusCapCertificate,
-                                                                 final List<HistoricalPrices> historicalPrices, final long recommendedHoldingPeriod) {
+                                                                 final List<HistoricalPrices> historicalPrices, int totalSimulations,
+                                                                 final long recommendedHoldingPeriod) {
         int nodes = clusterSize;
-        int simulationChunks = bonusCapCertificate.getNumberOfSimulations() / nodes;
-        bonusCapCertificate.setNumberOfSimulations(simulationChunks);
+        int nodeChunk = Math.round(bonusCapCertificate.getNumberOfSimulations() / (float) clusterSize);
+
+        int lastNodeChunk = totalSimulations - (clusterSize -1) * nodeChunk;
 
         Collection<IgniteCallable<List<Double>>> clos = new ArrayList<>(clusterSize);
 
         for (int i = 0; i < clusterSize; i++) {
+            final int chunk = i == clusterSize -1 ? lastNodeChunk : nodeChunk;
             clos.add(new IgniteCallable<List<Double>>() {
                 /** {@inheritDoc} */
                 @Override
                 public List<Double> call() throws Exception {
+                    System.out.println(">>> Processing "+chunk+" simulations");
+                    bonusCapCertificate.setNumberOfSimulations(chunk);
                     return simulatorCalculator.calculateSimulationsAndPayoffs(bonusCapCertificate, historicalPrices,
                             recommendedHoldingPeriod);
                 }
