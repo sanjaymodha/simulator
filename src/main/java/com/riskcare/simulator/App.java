@@ -94,7 +94,7 @@ public class App
                     });
             List<Double> nonDiscountedPayoffs = simulatorCalculator.calculateSimulationsAndPayoffs(bonusCapCertificate,historicalPricesList,recommendedHoldingPeriod);
             List<Double> discountedPayoffs = payoffCalculator.calculatedDiscountedPayoffs(recommendedHoldingPeriod,bonusCapCertificate,nonDiscountedPayoffs);
-            marketRiskMeasuresCalculator.calculateMarketRiskMeasures(discountedPayoffs,bonusCapCertificate,recommendedHoldingPeriod);
+            Map measures = marketRiskMeasuresCalculator.calculateMarketRiskMeasures(discountedPayoffs,bonusCapCertificate,recommendedHoldingPeriod);
             // Closing the workbook
         }
         workbook.close();
